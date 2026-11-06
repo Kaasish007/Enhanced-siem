@@ -46,6 +46,7 @@ If your results look wrong, the most likely cause is **feature column order** in
 
 This is the simplest “faculty demo via URL” option.
 
+
 1. Create a GitHub repo and push your project files (make sure `app.py`, `requirements.txt`, `mini_siem/`, and `models/` are included).
 2. Go to [Streamlit Community Cloud](https://streamlit.io/cloud) and sign in.
 3. Click **New app**.
