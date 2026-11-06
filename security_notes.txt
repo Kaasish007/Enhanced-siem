@@ -1,0 +1,97 @@
+================================================================================
+ENHANCED SIEM - PROJECT ARCHITECTURE & SECURITY SPECIFICATIONS
+================================================================================
+
+1. PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+The Enhanced SIEM (Mini SIEM) project provides an intelligent, host-level 
+security information and event management pipeline capable of identifying 
+stealthy cyber threats, privilege escalation attempts, and system anomalies.
+By integrating machine learning and deep learning anomaly detection models 
+(Autoencoders, Isolation Forest, and Local Outlier Factor), it detects 
+deviations from normal kernel and process behavior without relying solely on 
+static, signature-based rules.
+
+
+2. THREAT MODEL & MONITORED ATTACK VECTORS
+--------------------------------------------------------------------------------
+The system is designed to detect modern exploitation techniques, including:
+
+- Privilege Escalation:
+  * Kernel exploits (e.g., ret2usr, Dirty COW / CVE-2016-5195)
+  * Exploitation of race conditions in system resources
+  * Unauthorized token or credential manipulation (UID/GID elevation)
+
+- Abnormal Process Execution & Injection:
+  * Suspicious child process spawning from benign daemons
+  * Living-off-the-land binaries (LotL) execution patterns
+  * Process hollowing and abnormal memory address allocations
+
+- Evasion & Subversion:
+  * Argument tampering and obfuscated shell invocation
+  * Rapid sequence syscall anomalies differing from baseline profiling
+
+
+3. DETECTION MECHANISMS & MODELS
+--------------------------------------------------------------------------------
+A. Deep Learning: PyTorch Autoencoder (`models/autoencoder_beth.pth`)
+   - Architecture: Symmetric multi-layer encoder-decoder network with bottleneck 
+     representation.
+   - Mechanism: Trained exclusively on benign/baseline operational behavior. 
+     When presented with an anomalous event, the reconstruction error 
+     (Mean Squared Error between input and output) spikes beyond an established 
+     threshold, signaling an anomaly.
+   - Advantage: Highly effective at identifying complex, non-linear correlations 
+     and zero-day exploitation patterns.
+
+B. Ensemble Tree-based: Isolation Forest (`models/isolation_forest_beth.pkl`)
+   - Mechanism: Partitions feature space using random decision splits. Anomalous 
+     records require significantly fewer splits to isolate, resulting in shorter 
+     tree path lengths.
+   - Purpose: Fast, low-overhead screening of outlier feature vectors.
+
+C. Density-based: Local Outlier Factor (`models/lof_beth.pkl`)
+   - Mechanism: Evaluates local density of a sample relative to its k-nearest 
+     neighbors.
+   - Purpose: Detects points that have a substantially lower local density than 
+     their surrounding neighborhood, catching localized clustering attacks.
+
+
+4. DATASET & PREPROCESSING PIPELINE
+--------------------------------------------------------------------------------
+The preprocessing pipeline ingests host audit log data (e.g., BETH dataset) 
+and prepares a standardized 14-dimensional feature representation:
+
+- Input Dimensions: 14 selected system activity features.
+- Preprocessing steps:
+  1. Label Stripping: Removes ground-truth evaluation labels ('sus', 'evil', 
+     'attack', 'label', 'anomaly') prior to model inference.
+  2. String / Buffer Analysis: Extracts structural metadata such as argument 
+     lengths and stack address string lengths.
+  3. Categorical Encoding: Maps nominal parameters into numeric feature spaces.
+  4. Matrix Padding & Slicing: Enforces a strict 14-feature vector format via 
+     zero-padding or ordered truncation.
+  5. Missing Value Imputation: Sanitizes NaN/inf values with zero-default 
+     fallbacks.
+
+
+5. SYSTEM ARCHITECTURE & INTEGRATION
+--------------------------------------------------------------------------------
+- Inference Core (`mini_siem/inference.py`):
+  Provides modular prediction hooks for real-time and batch CSV evaluation.
+- Presentation Tier (`app.py`):
+  Streamlit interactive dashboard supporting CSV ingestion, anomaly rate 
+  visualizations, time-series distribution, and model comparison metrics.
+- Benchmark Engine (`comparison.py`, `model_results.csv`):
+  Provides empirical precision, recall, and F1-score evaluation across models.
+
+
+6. OPERATIONAL RECOMMENDATIONS
+--------------------------------------------------------------------------------
+- Keep baseline model weights updated periodically to reflect drift in normal 
+  administrative workflows.
+- Investigate alerts exceeding high reconstruction error thresholds (> 95th 
+  percentile) immediately for active exploitation indicators.
+- For cloud deployment, maintain CPU-friendly PyTorch runtime dependencies 
+  as configured in `requirements.txt`.
+================================================================================
